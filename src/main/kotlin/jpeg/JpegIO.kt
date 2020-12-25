@@ -519,7 +519,6 @@ fun writeJpeg(segments: Segments, compress: (ByteArray) -> ByteArray = { it }): 
     val prefix = mutableListOf<Byte>()
     prefix.addAll(listOf(0xFF.toByte(), 0xD8.toByte()))
     segments.imageSegment?.write()?.toList()?.let(prefix::addAll)
-    segments.imageSegment?.write()?.toList()?.let(prefix::addAll)
     segments.commentSegment?.write()?.toList()?.let(prefix::addAll)
     segments.dqtSegment?.write()?.toList()?.let(prefix::addAll)
     segments.startOfFrameSegment.write().toList().let(prefix::addAll)

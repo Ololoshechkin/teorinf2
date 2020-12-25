@@ -81,20 +81,19 @@ class HuffmanTree internal constructor(val root: AnyHuffman.Node<*>, val symbolC
     fun readAll(bits: BitIO): ByteArray {
         val bytes = mutableListOf<Byte>()
         while (true) {
-            val byte = read(bits) ?: break
-            print(byte)
-            print(", ")
+            val byte = read(bits, true) ?: break
             bytes.add(byte)
         }
         return bytes.toByteArray()
     }
 
-    fun read(bits: BitIO): Byte? {
+    fun read(bits: BitIO, stopIfNull: Boolean = false): Byte? {
         var node = root
         while (true) {
-            node = when (bits.read() ?: true) {
+            node = when (bits.read() ?: (if (stopIfNull) null else true)) {
                 false -> node.left ?: return null
                 true -> node.right ?: return null
+                null -> return null
             }
             if (node.value != null) {
                 return node.value!!

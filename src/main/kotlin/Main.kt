@@ -1,6 +1,8 @@
 //import compressor.totalData
 //import superencoder.buildSuperHuffman
+import compressor.totalData
 import jpeg.writeJpeg
+import superencoder.buildSuperHuffman
 import java.io.File
 
 fun compressDir(path: String, outputDirName: String) {
@@ -49,6 +51,18 @@ fun main() {
     compressDir("/Users/Vadim.Briliantov/Downloads/jpeg30", "output_30")
     compressDir("/Users/Vadim.Briliantov/Downloads/jpeg80", "output_80")
 
-//    println(totalData.size)
+//    println(" sz : " + totalData.size)
+//
+//    val unique = totalData.distinct()
+//    println(" uniq : " + unique.size)
+//
+//    (0x00..0xFF).forEach {
+//        if (it.toByte() !in unique) {
+//            totalData.add(it.toByte())
+//        }
+//    }
+//
+//    println(" uniq2 : " + totalData.distinct().size)
+//
 //    println(buildSuperHuffman(totalData.toByteArray()).payload.joinToString())
 }

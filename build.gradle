@@ -12,3 +12,15 @@ repositories {
 dependencies {
     implementation "org.jetbrains.kotlin:kotlin-stdlib"
 }
+
+
+apply plugin: 'distribution'
+
+tasks.jar {
+    manifest {
+        attributes["Main-Class"] = "compressor.MainKt"
+    }
+    configurations["compileClasspath"].forEach { file ->
+        from(zipTree(file.absoluteFile))
+    }
+}
