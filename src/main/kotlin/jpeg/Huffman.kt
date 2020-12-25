@@ -9,7 +9,7 @@ import toIO
 import kotlin.math.abs
 
 abstract class AnyHuffman {
-    interface Node<SomeNode: Node<SomeNode>> {
+    interface Node<SomeNode : Node<SomeNode>> {
         var left: SomeNode?
         var right: SomeNode?
         var value: Byte?
@@ -26,8 +26,38 @@ abstract class AnyHuffman {
     }
 }
 
-class HuffmanTree internal constructor(val root: AnyHuffman.Node<*>, val symbolCounts: Array<Int>? = null, val symbols: Array<Byte>? = null) {
-    data class Node(override var left: Node? = null, override var right: Node? = null, override var value: Byte? = null) : AnyHuffman.Node<Node>
+interface AnyHuffmanTree {
+    fun encodeSymbol(byte: Byte): BitArray
+
+    fun read(bits: BitIO, stopIfNull: Boolean = false): Byte?
+
+    fun readAll(bits: BitIO): ByteArray {
+        val bytes = mutableListOf<Byte>()
+        while (true) {
+            val byte = read(bits, true) ?: break
+            bytes.add(byte)
+        }
+        return bytes.toByteArray()
+    }
+}
+
+open class HuffmanTree internal constructor(
+    val root: AnyHuffman.Node<*>,
+    val symbolCounts: Array<Int>? = null,
+    val symbols: Array<Byte>? = null
+) : AnyHuffmanTree {
+    data class Node(
+        override var left: Node? = null,
+        override var right: Node? = null,
+        override var value: Byte? = null
+    ) : AnyHuffman.Node<Node>
+
+    fun printTree(node: AnyHuffman.Node<*> = root): String {
+        if (node.value != null) return "(${node.value})"
+        val L = if (node.left != null) "0${printTree(node.left!!)}1" else ""
+        val R = if (node.right != null) "0${printTree(node.right!!)}1" else ""
+        return L + R
+    }
 
     companion object {
         fun build(symbolCounts: Array<Int>, symbols: Array<Byte>): HuffmanTree {
@@ -75,22 +105,17 @@ class HuffmanTree internal constructor(val root: AnyHuffman.Node<*>, val symbolC
         symbolToCode = map
     }
 
-    fun encodeSymbol(byte: Byte): BitArray =
+    override fun encodeSymbol(byte: Byte): BitArray =
         symbolToCode[byte] ?: throw Exception("Bad input (huffman tree failed to recognize this symbol: $byte)")
 
-    fun readAll(bits: BitIO): ByteArray {
-        val bytes = mutableListOf<Byte>()
-        while (true) {
-            val byte = read(bits, true) ?: break
-            bytes.add(byte)
-        }
-        return bytes.toByteArray()
-    }
-
-    fun read(bits: BitIO, stopIfNull: Boolean = false): Byte? {
+    override fun read(bits: BitIO, stopIfNull: Boolean): Byte? {
         var node = root
+        if (node.value != null) {
+            return node.value
+        }
         while (true) {
-            node = when (bits.read() ?: (if (stopIfNull) null else true)) {
+            val cur = bits.read() ?: (if (stopIfNull) null else true)
+            node = when (cur) {
                 false -> node.left ?: return null
                 true -> node.right ?: return null
                 null -> return null
@@ -147,7 +172,7 @@ fun decode(segments: Segments): DecodedData {
 
 private fun decodeSingleSymbol(
     data: BitIO,
-    tree: HuffmanTree
+    tree: AnyHuffmanTree
 ): Pair<Byte, Int> {
     val symbol = tree.read(data)!!
     val valueSize = symbol.asInt() and 15
@@ -166,8 +191,8 @@ private fun decodeSingleSymbol(
 private fun decodeBlock(
     data: BitIO,
     dcLast: Int,
-    dcTree: HuffmanTree,
-    acTree: HuffmanTree
+    dcTree: AnyHuffmanTree,
+    acTree: AnyHuffmanTree
 ): IntArray {
     val block = IntArray(64)
     block[0] = dcLast + decodeSingleSymbol(data, dcTree).second
@@ -179,7 +204,6 @@ private fun decodeBlock(
         }
         val run: Int = decodedSymbol.first.asInt() shr 4
         i += run + 1
-        if (i >= 64) break
         block[i] = decodedSymbol.second
     }
     return block
@@ -216,11 +240,9 @@ private fun encodeBlock(
     output: BitIO,
     previousDc: Int,
     block: IntArray,
-    dcTree: HuffmanTree,
-    acTree: HuffmanTree
+    dcTree: AnyHuffmanTree,
+    acTree: AnyHuffmanTree
 ): Int {
-    val EOB = acTree.encodeSymbol(0x00.toByte())
-    val ac16 = acTree.encodeSymbol(0xF0.toByte())
     val dcDiff = block[0] - previousDc
     if (dcDiff == 0) {
         val dc = dcTree.encodeSymbol(0x00.toByte())
@@ -236,6 +258,7 @@ private fun encodeBlock(
         --lastAc
     }
     if (lastAc == 0) {
+        val EOB = acTree.encodeSymbol(0x00.toByte())
         output.writeAll(EOB)
         return block[0]
     }
@@ -247,6 +270,7 @@ private fun encodeBlock(
         }
         var numberOfZeros = i - start
         for (j in 0 until (numberOfZeros shr 4)) {
+            val ac16 = acTree.encodeSymbol(0xF0.toByte())
             output.writeAll(ac16)
         }
         numberOfZeros = numberOfZeros and 0xF
@@ -257,6 +281,7 @@ private fun encodeBlock(
         i++
     }
     if (lastAc != 63) {
+        val EOB = acTree.encodeSymbol(0x00.toByte())
         output.writeAll(EOB)
     }
     return block[0]

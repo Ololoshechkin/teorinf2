@@ -21,10 +21,10 @@ fun write(file: File, segments: Segments, initialData: ByteArray) {
     val result = writeJpeg(segments) { data ->
 
 //        val (h, payload) = buildSuperHuffman(data)
-//
+
 //        val sz0 = payload.size
 
-//        totalData.addAll(data.toList())
+        totalData.addAll(data.toList())
 
         val h = parseHuffmanTree(0, SUPER_HUFFMAN).second
 

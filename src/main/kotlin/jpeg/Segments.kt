@@ -3,6 +3,8 @@ package jpeg
 import asInt
 import bits
 import bytes
+import superencoder.ProbHuffman
+import superencoder.SuperHuffman
 import superencoder.parseHuffmanTree
 
 abstract class AbstractSegment<T : AbstractSegment<T>> {
@@ -162,7 +164,7 @@ class DefineHuffmanTableSegment(
     override var payload: ByteArray,
     val isSuperHuffman: Boolean = false
 ) : AbstractSegment<DefineHuffmanTableSegment>() {
-    var idToTree: MutableMap<Int, HuffmanTree> = hashMapOf()
+    var idToTree: MutableMap<Int, AnyHuffmanTree> = hashMapOf()
 
     init {
         if (payload.isNotEmpty()) {
@@ -180,9 +182,17 @@ class DefineHuffmanTableSegment(
                 while (i < payload.size) {
                     val id = payload[i++].asInt()
 
-                    val (newI, tree) = parseHuffmanTree(i, payload)
-                    idToTree[id] = tree
-                    i = newI
+                    val mp = hashMapOf<Byte, SuperHuffman>()
+                    val sz = payload[i++].asInt()
+                    repeat(sz) {
+                        val b = payload[i++]
+                        val (newI, tree) = parseHuffmanTree(i, payload)
+
+                        mp[b] = SuperHuffman(tree, byteArrayOf())
+                        i = newI
+                    }
+
+                    idToTree[id] = ProbHuffman(mp)
                 }
             }
         }

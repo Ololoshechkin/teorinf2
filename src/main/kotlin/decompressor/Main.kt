@@ -21,7 +21,7 @@ fun read(file: File): Segments {
             withInitialDHT = true
         ) { data ->
 //            val sz0 = data[0].asInt() * 256 + data[1].asInt()
-//
+
 //            val payload = data.drop(2).take(sz0)
 
 //            val h = parseHuffmanTree(0, payload.toByteArray()).second

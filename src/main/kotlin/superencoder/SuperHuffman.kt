@@ -33,13 +33,7 @@ data class SuperHuffman(
     val payload: ByteArray
 )
 
-fun buildSuperHuffman(data: ByteArray): SuperHuffman {
-    val freqs = hashMapOf<Byte, Int>()
-    data.forEach { b ->
-        freqs.putIfAbsent(b, 0)
-        freqs[b] = freqs[b]!! + 1
-    }
-
+fun buildSHufImpl(freqs: HashMap<Byte, Int>): SuperHuffman {
     val nodes = freqs.keys.map { WeightedNode(weight = freqs[it]!!, value = it) }.toSortedSet()
     while (nodes.size != 1) {
         val min1 = nodes.first().also { nodes.remove(it) }
@@ -66,6 +60,16 @@ fun buildSuperHuffman(data: ByteArray): SuperHuffman {
         tree = tree,//HuffmanTree.build(symbolCounts, symbols),
         payload = payload
     )
+}
+
+fun buildSuperHuffman(data: ByteArray): SuperHuffman {
+    val freqs = hashMapOf<Byte, Int>()
+    data.forEach { b ->
+        freqs.putIfAbsent(b, 0)
+        freqs[b] = freqs[b]!! + 1
+    }
+
+    return buildSHufImpl(freqs)
 }
 
 private fun HuffmanTree.dump(): ByteArray {
@@ -119,20 +123,24 @@ fun superEncode(segments: Segments, data: DecodedData) {
     val superHuffmans = superEncodeLearn(segments, data)
 
     val payload = mutableListOf<Byte>()
-    superHuffmans.forEach { (id, sh) ->
+    superHuffmans.forEach { (id, ph) ->
         payload.add(id.toByte())
-        payload.addAll(sh.payload.toTypedArray())
+        payload.add(ph.ph.size.toByte())
+        ph.ph.forEach { (b, sh) ->
+            payload.add(b)
+            payload.addAll(sh.payload.toTypedArray())
+        }
     }
 
 //    segments.defineHuffmanTableSegment = DefineHuffmanTableSegment(payload.size + 2, payload.toByteArray())
-    segments.defineHuffmanTableSegment.idToTree = superHuffmans.mapValues { (_, sh) -> sh.tree }.toMutableMap()
+    segments.defineHuffmanTableSegment.idToTree = superHuffmans.mapValues { (_, sh) -> sh }.toMutableMap()
     segments.defineHuffmanTableSegment.payload = payload.toByteArray()
     segments.defineHuffmanTableSegment.lengthOfPayload = payload.size + 2
 
     segments.data = encode(segments, data).bytes()
 }
 
-fun superEncodeLearn(segments: Segments, data: DecodedData): Map<Int, SuperHuffman> {
+fun superEncodeLearn(segments: Segments, data: DecodedData): Map<Int, ProbHuffman> {
     val (H, W) = getMacroBlockDimension(segments.startOfFrameSegment)
     val scanComponents = segments.startOfScanSegment.components
     val frameComponents = segments.startOfFrameSegment.components
@@ -158,7 +166,7 @@ fun superEncodeLearn(segments: Segments, data: DecodedData): Map<Int, SuperHuffm
     }
 
     return idToText.mapValues { (_, text) ->
-        buildSuperHuffman(text.toByteArray())
+        buildProbHuffman(text.toByteArray()) as ProbHuffman
     }
 }
 
@@ -168,8 +176,6 @@ private fun superEncodeBlockLearn(
     dcText: MutableList<Byte>,
     acText: MutableList<Byte>
 ): Int {
-    acText.add(0x00.toByte())
-    acText.add(0xF0.toByte())
     val dcDiff = block[0] - previousDc
     if (dcDiff == 0) {
         dcText.add(0x00.toByte())
@@ -182,48 +188,7 @@ private fun superEncodeBlockLearn(
         --lastAc
     }
     if (lastAc == 0) {
-        return block[0]
-    }
-    var i = 1
-    while (i <= lastAc) {
-        val start = i
-        while (block[i] == 0 && i <= lastAc) {
-            i++
-        }
-        var numberOfZeros = i - start
-        numberOfZeros = numberOfZeros and 0xF
-        val codeNumber = binCode(block[i])
-        acText.add(((numberOfZeros shl 4) + codeNumber.size).toByte())
-        i++
-    }
-    return block[0]
-}
-
-private fun superEncodeBlock(
-    output: BitIO,
-    previousDc: Int,
-    block: IntArray,
-    dcTree: HuffmanTree,
-    acTree: HuffmanTree
-): Int {
-    val EOB = acTree.encodeSymbol(0x00.toByte())
-    val ac16 = acTree.encodeSymbol(0xF0.toByte())
-    val dcDiff = block[0] - previousDc
-    if (dcDiff == 0) {
-        val dc = dcTree.encodeSymbol(0x00.toByte())
-        output.writeAll(dc)
-    } else {
-        val codeNumber = binCode(dcDiff)
-        val dc = dcTree.encodeSymbol(codeNumber.size.toByte())
-        output.writeAll(dc)
-        output.writeAll(codeNumber)
-    }
-    var lastAc = 63
-    while (lastAc > 0 && block[lastAc] == 0) {
-        --lastAc
-    }
-    if (lastAc == 0) {
-        output.writeAll(EOB)
+        acText.add(0x00.toByte())
         return block[0]
     }
     var i = 1
@@ -234,17 +199,15 @@ private fun superEncodeBlock(
         }
         var numberOfZeros = i - start
         for (j in 0 until (numberOfZeros shr 4)) {
-            output.writeAll(ac16)
+            acText.add(0xF0.toByte())
         }
         numberOfZeros = numberOfZeros and 0xF
         val codeNumber = binCode(block[i])
-        val ac = acTree.encodeSymbol(((numberOfZeros shl 4) + codeNumber.size).toByte())
-        output.writeAll(ac)
-        output.writeAll(codeNumber)
+        acText.add(((numberOfZeros shl 4) + codeNumber.size).toByte())
         i++
     }
     if (lastAc != 63) {
-        output.writeAll(EOB)
+        acText.add(0x00.toByte())
     }
     return block[0]
 }
