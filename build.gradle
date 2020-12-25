@@ -18,7 +18,7 @@ apply plugin: 'distribution'
 
 tasks.jar {
     manifest {
-        attributes["Main-Class"] = "compressor.MainKt"
+        attributes["Main-Class"] = "decompressor.MainKt"
     }
     configurations["compileClasspath"].forEach { file ->
         from(zipTree(file.absoluteFile))
