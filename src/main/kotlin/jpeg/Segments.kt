@@ -1,8 +1,6 @@
 package jpeg
 
 import asInt
-import bits
-import bytes
 import superencoder.ProbHuffman
 import superencoder.SuperHuffman
 import superencoder.parseHuffmanTree
@@ -192,7 +190,7 @@ class DefineHuffmanTableSegment(
                         i = newI
                     }
 
-                    idToTree[id] = ProbHuffman(mp)
+                    idToTree[id] = ProbHuffman(mp, false)
                 }
             }
         }

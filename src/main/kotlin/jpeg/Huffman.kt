@@ -29,6 +29,8 @@ abstract class AnyHuffman {
 interface AnyHuffmanTree {
     fun encodeSymbol(byte: Byte): BitArray
 
+    var compressed: Boolean
+
     fun read(bits: BitIO, stopIfNull: Boolean = false): Byte?
 
     fun readAll(bits: BitIO): ByteArray {
@@ -46,6 +48,9 @@ open class HuffmanTree internal constructor(
     val symbolCounts: Array<Int>? = null,
     val symbols: Array<Byte>? = null
 ) : AnyHuffmanTree {
+
+    override var compressed: Boolean = false
+
     data class Node(
         override var left: Node? = null,
         override var right: Node? = null,
@@ -159,6 +164,8 @@ fun decode(segments: Segments): DecodedData {
             for (k in 0 until microBlockNumber) {
                 val acTree = idToTree[scanComp.acTableId]!!
                 val dcTree = idToTree[scanComp.dcTableId]!!
+
+                acTree.compressed = true
 
                 val block = decodeBlock(dataIo, dcLast[j], dcTree, acTree)
                 dcLast[j] = block[0]
@@ -287,6 +294,7 @@ private fun encodeBlock(
     return block[0]
 }
 
+// value -- delta DC
 fun binCode(value: Int): BitArray {
     val result = mutableListOf<Boolean>()
 
@@ -298,11 +306,15 @@ fun binCode(value: Int): BitArray {
         absValue = absValue shr 1
     }
 
+//  number -- len(|delta DC|) in bits
+
     var cur = valueFixed and (1 shl number) - 1
+//    cur -- len(|delta DC|) bits of valueFixed
     for (i in 0 until number) {
         result.add((cur and 1).asBool())
         cur = cur shr 1
     }
     result.reverse()
+//   result -- cur (in bits)
     return result.toTypedArray()
 }

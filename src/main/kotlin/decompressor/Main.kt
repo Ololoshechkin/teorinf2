@@ -33,8 +33,6 @@ fun read(file: File): Segments {
             val sz = data2[0].asInt() * 256 + data2[1].asInt()
             val carry = data2[2]
 
-            println("sz[2] = $sz | carry[2] = $carry")
-
             h.readAll(data2.drop(3).take(sz).toByteArray().bits().dropLast(carry.asInt()).toTypedArray().toIO()) +
                     data2.drop(3 + sz).toByteArray()
         }

@@ -1,7 +1,6 @@
 package superencoder
 
 import BitArray
-import BitIO
 import asInt
 import bits
 import bytes
@@ -147,6 +146,7 @@ fun superEncodeLearn(segments: Segments, data: DecodedData): Map<Int, ProbHuffma
     val idToText = segments.defineHuffmanTableSegment.idToTree.mapValues {
         mutableListOf<Byte>()
     }
+    val acIds = mutableSetOf<Int>()
 
     val dcLast = IntArray(scanComponents.size)
 
@@ -160,15 +160,23 @@ fun superEncodeLearn(segments: Segments, data: DecodedData): Map<Int, ProbHuffma
                 val acText = idToText[scanComp.acTableId]!!
                 val dcText = idToText[scanComp.dcTableId]!!
 
+                acIds.add(scanComp.acTableId)
+
                 dcLast[j] = superEncodeBlockLearn(dcLast[j], data[j][i * microBlockNumber + k], dcText, acText)
             }
         }
     }
 
-    return idToText.mapValues { (_, text) ->
-        buildProbHuffman(text.toByteArray()) as ProbHuffman
+    return idToText.mapValues { (id, text) ->
+        if (id in acIds) println("shouldCompress($id) = true")
+        buildProbHuffman(text.toByteArray(), shouldCompress = id in acIds)
     }
 }
+
+// 5, 1, -3
+// [5, 1, 253]
+
+// sum(x[j] * cos(pi*(2*j+1)*i/16)
 
 private fun superEncodeBlockLearn(
     previousDc: Int,
@@ -204,6 +212,12 @@ private fun superEncodeBlockLearn(
         numberOfZeros = numberOfZeros and 0xF
         val codeNumber = binCode(block[i])
         acText.add(((numberOfZeros shl 4) + codeNumber.size).toByte())
+//        numberOfZeros shl 4 <= 15
+//        codeNumber.size <= 11
+//        15*11 = 165
+
+//        165 *
+
         i++
     }
     if (lastAc != 63) {
